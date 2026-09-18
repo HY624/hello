@@ -19,6 +19,16 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
+      # 这一步不能省。不装 buildx 的话，build-push-action 会退回 runner 上
+      # 自带的 "default" builder（docker 驱动），而 runner 的 dockerd 用的是
+      # 老的 overlay2 镜像存储，那个驱动只能生成 docker 格式的 manifest。
+      # 教学仓库（Zot）只认 OCI 格式，于是会在最后推送 manifest 时报
+      # "manifest invalid"（镜像层其实已经全部传完了）。
+      # setup-buildx-action 会起一个 docker-container 驱动的 builder，
+      # 由 buildkit 直接以 OCI 格式推送，问题就没了。
+      - name: 设置 Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: 登录教学镜像仓库
         uses: docker/login-action@v3
         with:
