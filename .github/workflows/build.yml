@@ -31,6 +31,12 @@ jobs:
         with:
           context: .
           push: true
+          # buildx 默认会附带一份 provenance 来源证明，并把它和镜像一起
+          # 打包成 manifest list 推送。教学仓库（Zot）不认这个格式，会在
+          # 推送最后一步报 "manifest invalid"（镜像层其实已经传完了）。
+          # 关掉它即可，镜像内容完全不受影响。
+          provenance: false
+          sbom: false
           # 每次运行一个不重复的 tag，方便对照是哪一次构建出来的
           tags: |
             ${{ env.IMAGE }}:gh${{ github.run_number }}
