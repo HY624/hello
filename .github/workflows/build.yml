@@ -1,0 +1,37 @@
+name: 构建并推送镜像
+
+# 触发条件：推代码到 main 分支，或在网页上手动点运行
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  IMAGE: registry.dev.oaiai.ai/student/heyang-hello
+
+jobs:
+  build:
+    # 注意：GitHub 的 runner 本来就是 amd64，
+    # 所以这里不需要像本地那样写 --platform linux/amd64。
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 登录教学镜像仓库
+        uses: docker/login-action@v3
+        with:
+          registry: registry.dev.oaiai.ai
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: 构建并推送
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # 每次运行一个不重复的 tag，方便对照是哪一次构建出来的
+          tags: |
+            ${{ env.IMAGE }}:gh${{ github.run_number }}
+            ${{ env.IMAGE }}:latest
