@@ -1,0 +1,75 @@
+# 第八课作业 · hello-web
+# 发布契约：镜像 tag 就是版本号，部署只认 :v1 / :v2，不用 :latest。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-web
+  namespace: st-heyang
+spec:
+  # 2 副本：滚动更新时能看见「新 Pod 先 Ready，旧 Pod 才 Terminating」，全程有 Pod 在服务。
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hello-web
+  template:
+    metadata:
+      labels:
+        app: hello-web
+    spec:
+      # 教学仓库是私有的，没这个 Secret 会停在 ImagePullBackOff（第七课已建，复用）。
+      imagePullSecrets:
+      - name: regcred
+      containers:
+      # 容器名叫 web —— 课件里 set image deployment/hello-web web=... 靠的就是这个名字。
+      - name: web
+        image: registry.dev.oaiai.ai/heyang/hello-web:v1
+        # student 是全班共用账号，同名 tag 可能被别人覆盖推到同一路径；
+        # 非 :latest 的 tag 默认是 IfNotPresent，节点上只要有旧镜像就不会去仓库拉。
+        # 实测踩过，所以显式 Always。
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 2
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 20m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-web
+  namespace: st-heyang
+spec:
+  selector:
+    app: hello-web
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-web
+  namespace: st-heyang
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: heyang.dev.oaiai.ai
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hello-web
+            port:
+              number: 80
